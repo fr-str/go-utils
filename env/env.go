@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"golang.org/x/exp/constraints"
 )
 
@@ -14,8 +15,13 @@ type types interface {
 	~bool | ~[]string | constraints.Ordered
 }
 
-// Get gets variable from env, if not found return default value
-// If defaultValue is set and variable not found, then panics
+func init() {
+	// Load environment variables from .env file if present.
+	godotenv.Load()
+}
+
+// Get retrieves a variable from the environment. If not found, it returns the default value.
+// If defaultValue is set and the variable is not found, it panics.
 func Get[T types](envName string, defaultValue ...T) T {
 	value := os.Getenv(envName)
 
@@ -34,7 +40,7 @@ func Get[T types](envName string, defaultValue ...T) T {
 	case bool:
 		ret, err = strconv.ParseBool(value)
 
-	case int8, int16, int32, int64, int, uint8, uint16, uint32, uint64, uint:
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 		ret, err = strconv.Atoi(value)
 		ret = reflect.ValueOf(ret).Convert(reflect.TypeOf(def)).Interface()
 
@@ -51,11 +57,14 @@ func Get[T types](envName string, defaultValue ...T) T {
 
 	switch {
 	case value == "" && len(defaultValue) == 0:
-		panic(fmt.Sprintf("Required variable %s is not set - type: %s", envName, fmt.Sprintf("%T", def)))
+		// If the required variable is not set and no default value is provided, panic.
+		panic(fmt.Sprintf("Required variable '%s' is not set - type: '%T'", envName, def))
 	case value == "":
+		// If the variable is not set but a default value is provided, return the default value.
 		ret = def
 	case err != nil:
-		panic(fmt.Sprintf("Variable %s could not be parsed - type: %s, value: %s", envName, fmt.Sprintf("%T", def), value))
+		// If the variable cannot be parsed, panic.
+		panic(fmt.Sprintf("Variable '%s' could not be parsed - type: '%T', value: '%s'", envName, def, value))
 	}
 
 	return ret.(T)
